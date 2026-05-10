@@ -1,745 +1,1085 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id" data-theme="auto">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>SUPER MARIO 3D</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; touch-action: none; }
-  #canvas { display: block; }
-  #ui {
-    position: fixed; top: 0; left: 0; right: 0; padding: 12px 20px;
-    display: flex; justify-content: space-between; align-items: center;
-    background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
-    pointer-events: none; z-index: 10;
-  }
-  .ui-block { text-align: center; }
-  .ui-label { font-size: 11px; letter-spacing: 2px; color: #ffcc00; text-transform: uppercase; font-weight: 700; text-shadow: 1px 1px 0 #000; }
-  .ui-value { font-size: 26px; font-weight: 900; color: #fff; text-shadow: 2px 2px 0 #000, 0 0 15px rgba(255,204,0,0.5); letter-spacing: 1px; }
-  .lives { display: flex; gap: 4px; font-size: 18px; }
-  #start-screen, #gameover-screen, #win-screen {
-    position: fixed; inset: 0; z-index: 100;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: radial-gradient(ellipse at center, #1a0a2e 0%, #0d0018 100%);
-  }
-  #gameover-screen, #win-screen { display: none; }
-  .screen-title {
-    font-size: clamp(36px,8vw,80px); font-weight: 900; letter-spacing: 4px; color: #ffcc00;
-    text-shadow: 4px 4px 0 #e55000, 8px 8px 0 #000, 0 0 40px rgba(255,204,0,0.6);
-    margin-bottom: 8px; animation: titlePulse 2s ease-in-out infinite;
-  }
-  .screen-sub { font-size: clamp(14px,3vw,22px); color: #ff6b35; letter-spacing: 6px; text-transform: uppercase; margin-bottom: 40px; text-shadow: 2px 2px 0 #000; }
-  @keyframes titlePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
-  .pixel-mario { font-size: 80px; margin-bottom: 20px; animation: floatAnim 2s ease-in-out infinite; filter: drop-shadow(0 10px 20px rgba(255,100,0,0.5)); }
-  @keyframes floatAnim { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
-  .btn {
-    padding: 16px 50px; font-size: 20px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase;
-    background: linear-gradient(135deg, #ff6b00, #ff0066); color: #fff; border: none; border-radius: 50px;
-    cursor: pointer; box-shadow: 0 6px 0 #aa0000, 0 0 30px rgba(255,107,0,0.5); transition: all 0.1s; pointer-events: all;
-  }
-  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #aa0000; }
-  .info-text { color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 20px; letter-spacing: 1px; }
-  #mobile-controls {
-    position: fixed; bottom: 0; left: 0; right: 0; padding: 10px 20px 22px;
-    display: none; justify-content: space-between; align-items: flex-end; z-index: 10; pointer-events: none;
-  }
-  .dpad { display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(2, 58px); gap: 5px; pointer-events: all; }
-  .dpad-btn {
-    background: rgba(255,255,255,0.18); border: 2px solid rgba(255,255,255,0.35); border-radius: 14px;
-    color: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center;
-    cursor: pointer; user-select: none; backdrop-filter: blur(5px); -webkit-tap-highlight-color: transparent;
-  }
-  .dpad-btn.pressed { background: rgba(255,200,0,0.45); border-color: #ffcc00; }
-  .dpad-empty { background: transparent; border: none; pointer-events: none; }
-  .action-btns { display: flex; flex-direction: column; gap: 12px; align-items: flex-end; pointer-events: all; }
-  .action-btn {
-    width: 70px; height: 70px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.4);
-    color: #fff; font-size: 14px; font-weight: 900; letter-spacing: 1px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
-  }
-  .btn-jump { background: rgba(255,80,0,0.7); }
-  .btn-jump.pressed { background: rgba(255,180,0,0.9); }
-  #score-popup {
-    position: fixed; pointer-events: none; z-index: 50; font-size: 24px; font-weight: 900;
-    color: #ffcc00; text-shadow: 2px 2px 0 #000; display: none;
-  }
-  @keyframes scoreFloat { 0%{transform:translateY(0);opacity:1} 100%{transform:translateY(-80px);opacity:0} }
-  #level-announce { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 60; }
-  .announce-text {
-    font-size: clamp(28px,6vw,60px); font-weight: 900; color: #fff; text-shadow: 3px 3px 0 #000;
-    background: rgba(0,0,0,0.65); padding: 20px 50px; border-radius: 20px; border: 3px solid #ffcc00;
-    opacity: 0; transform: scale(0.5); transition: all 0.3s;
-  }
-  .announce-text.show { opacity: 1; transform: scale(1); }
-  #health-bar { width: 120px; height: 12px; background: rgba(255,255,255,0.2); border-radius: 6px; overflow: hidden; margin-top: 4px; }
-  #health-fill { height: 100%; background: linear-gradient(90deg,#00ff88,#00cc44); border-radius: 6px; transition: width 0.3s, background 0.3s; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Asepmessage</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    :root {
+      --ios-blue: #007AFF;
+      --ios-blue-dark: #0A84FF;
+      --ios-green: #34C759;
+      --ios-red: #FF3B30;
+      --ios-gray: #8E8E93;
+      --ios-light-gray: #E5E5EA;
+      --ios-bg: #FFFFFF;
+      --ios-surface: rgba(255,255,255,0.72);
+      --ios-bubble-out: #007AFF;
+      --ios-bubble-out-text: #FFFFFF;
+      --ios-bubble-in: #E9E9EB;
+      --ios-bubble-in-text: #000000;
+      --ios-separator: rgba(120,120,128,0.16);
+      --glass-border: rgba(255,255,255,0.28);
+      --glass-bg: rgba(255,255,255,0.25);
+      --shadow: 0 8px 32px rgba(0,0,0,0.08);
+      --radius-sm: 12px;
+      --radius-md: 18px;
+      --radius-lg: 24px;
+      --radius-xl: 32px;
+      --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root[data-theme="auto"] {
+        --ios-bg: #000000;
+        --ios-surface: rgba(30,30,30,0.72);
+        --ios-bubble-out: #0A84FF;
+        --ios-bubble-out-text: #FFFFFF;
+        --ios-bubble-in: #262628;
+        --ios-bubble-in-text: #FFFFFF;
+        --ios-separator: rgba(120,120,128,0.24);
+        --glass-border: rgba(255,255,255,0.08);
+        --glass-bg: rgba(40,40,40,0.45);
+        --shadow: 0 8px 32px rgba(0,0,0,0.35);
+      }
+    }
+    :root[data-theme="dark"] {
+      --ios-bg: #000000;
+      --ios-surface: rgba(30,30,30,0.72);
+      --ios-bubble-out: #0A84FF;
+      --ios-bubble-out-text: #FFFFFF;
+      --ios-bubble-in: #262628;
+      --ios-bubble-in-text: #FFFFFF;
+      --ios-separator: rgba(120,120,128,0.24);
+      --glass-border: rgba(255,255,255,0.08);
+      --glass-bg: rgba(40,40,40,0.45);
+      --shadow: 0 8px 32px rgba(0,0,0,0.35);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overflow: hidden; font-family: var(--font); background: var(--ios-bg); color: var(--ios-bubble-in-text); }
+    
+    /* Splash */
+    #splash { position: fixed; inset: 0; z-index: 9999; background: var(--ios-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.6s var(--ease-out); }
+    .splash-logo { width: 110px; height: 110px; border-radius: 26px; background: linear-gradient(135deg, var(--ios-blue), #5856D6); display: flex; align-items: center; justify-content: center; box-shadow: 0 12px 40px rgba(0,122,255,0.35), inset 0 1px 0 rgba(255,255,255,0.25); animation: splashPop 0.8s var(--spring); position: relative; overflow: hidden; }
+    .splash-logo::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 60%); }
+    .splash-logo svg { width: 56px; height: 56px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15)); position: relative; z-index: 1; }
+    .splash-title { margin-top: 20px; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(135deg, var(--ios-blue), #5856D6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .splash-subtitle { margin-top: 6px; font-size: 15px; color: var(--ios-gray); font-weight: 400; }
+    @keyframes splashPop { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+    /* Screens */
+    .screen { position: fixed; inset: 0; display: none; flex-direction: column; background: var(--ios-bg); animation: screenIn 0.45s var(--ease-out); }
+    .screen.active { display: flex; }
+    @keyframes screenIn { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+    /* Glass */
+    .glass { background: var(--glass-bg); backdrop-filter: saturate(180%) blur(24px); -webkit-backdrop-filter: saturate(180%) blur(24px); border: 1px solid var(--glass-border); }
+    .glass-strong { background: rgba(255,255,255,0.55); backdrop-filter: saturate(200%) blur(32px); -webkit-backdrop-filter: saturate(200%) blur(32px); border: 1px solid rgba(255,255,255,0.35); }
+    @media (prefers-color-scheme: dark) { .glass-strong { background: rgba(30,30,30,0.65); border: 1px solid rgba(255,255,255,0.08); } }
+    :root[data-theme="dark"] .glass-strong { background: rgba(30,30,30,0.65); border: 1px solid rgba(255,255,255,0.08); }
+
+    /* Status Bar */
+    .status-bar { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; font-size: 14px; font-weight: 600; position: relative; z-index: 100; }
+    .status-time { letter-spacing: 0.3px; }
+
+    /* Nav */
+    .nav-bar { height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; position: relative; z-index: 99; border-bottom: 1px solid var(--ios-separator); }
+    .nav-center { display: flex; flex-direction: column; align-items: center; flex: 1; }
+    .nav-title { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }
+    .nav-subtitle { font-size: 12px; color: var(--ios-gray); margin-top: 1px; display: flex; align-items: center; gap: 4px; transition: all 0.3s; }
+    .nav-subtitle.online { color: var(--ios-green); }
+    .nav-subtitle.online::before { content: ''; width: 6px; height: 6px; background: var(--ios-green); border-radius: 50%; display: inline-block; animation: pulseOnline 2s infinite; }
+    @keyframes pulseOnline { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .nav-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: transparent; border: none; color: var(--ios-blue); cursor: pointer; transition: all 0.2s; }
+    .nav-btn:active { transform: scale(0.88); background: rgba(0,122,255,0.1); }
+    .nav-btn svg { width: 22px; height: 22px; }
+
+    /* Chat Area */
+    .chat-container { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px 14px 8px; scroll-behavior: smooth; position: relative; -webkit-overflow-scrolling: touch; }
+    .chat-container::-webkit-scrollbar { width: 0; }
+
+    /* Date Separator */
+    .date-sep { display: flex; align-items: center; justify-content: center; margin: 16px 0; position: relative; }
+    .date-sep span { font-size: 11px; font-weight: 500; color: var(--ios-gray); text-transform: uppercase; letter-spacing: 0.5px; background: var(--ios-bg); padding: 0 10px; position: relative; z-index: 1; }
+    .date-sep::before { content: ''; position: absolute; left: 20%; right: 20%; height: 1px; background: var(--ios-separator); }
+
+    /* Messages */
+    .msg-row { display: flex; margin-bottom: 4px; animation: msgSlide 0.35s var(--ease-out); opacity: 0; animation-fill-mode: forwards; }
+    .msg-row.outgoing { justify-content: flex-end; }
+    .msg-row.incoming { justify-content: flex-start; }
+    @keyframes msgSlide { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: none; } }
+    
+    .msg-bubble { max-width: 74%; padding: 10px 14px; border-radius: var(--radius-md); font-size: 15.5px; line-height: 1.35; word-wrap: break-word; position: relative; transition: all 0.3s var(--ease-out); }
+    .msg-row.outgoing .msg-bubble { background: var(--ios-bubble-out); color: var(--ios-bubble-out-text); border-bottom-right-radius: 4px; }
+    .msg-row.incoming .msg-bubble { background: var(--ios-bubble-in); color: var(--ios-bubble-in-text); border-bottom-left-radius: 4px; }
+    
+    /* VIP Bubbles */
+    .msg-row.vip-out .msg-bubble { background: linear-gradient(135deg, #007AFF, #5856D6, #AF52DE); background-size: 200% 200%; animation: vipGradient 4s ease infinite; box-shadow: 0 4px 20px rgba(0,122,255,0.35), inset 0 1px 0 rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.15); }
+    @keyframes vipGradient { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+    
+    .msg-meta { display: flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 10px; opacity: 0.7; justify-content: flex-end; }
+    .msg-row.incoming .msg-meta { justify-content: flex-start; }
+    .read-status { display: inline-flex; }
+    .read-status.read { color: var(--ios-blue); }
+
+    /* Images in chat */
+    .msg-image { max-width: 260px; border-radius: var(--radius-md); overflow: hidden; cursor: pointer; position: relative; transition: transform 0.3s var(--spring); }
+    .msg-image:active { transform: scale(0.97); }
+    .msg-image img { width: 100%; height: auto; display: block; border-radius: var(--radius-md); }
+    .msg-row.outgoing .msg-image { border-bottom-right-radius: 4px; }
+    .msg-row.incoming .msg-image { border-bottom-left-radius: 4px; }
+
+    /* Voice Note */
+    .voice-bubble { display: flex; align-items: center; gap: 10px; min-width: 180px; padding: 10px 14px; }
+    .voice-play { width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.12); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; border: none; }
+    .voice-wave { flex: 1; height: 28px; display: flex; align-items: center; gap: 2.5px; }
+    .wave-bar { width: 3px; background: currentColor; border-radius: 2px; opacity: 0.5; transition: height 0.15s; }
+    .voice-time { font-size: 11px; opacity: 0.7; font-weight: 500; min-width: 36px; text-align: right; }
+
+    /* Typing Indicator */
+    .typing-row { display: flex; justify-content: flex-start; margin-bottom: 12px; animation: msgSlide 0.3s var(--ease-out); }
+    .typing-bubble { background: var(--ios-bubble-in); padding: 14px 18px; border-radius: var(--radius-md); border-bottom-left-radius: 4px; display: flex; align-items: center; gap: 4px; width: 64px; height: 40px; }
+    .typing-dot { width: 6px; height: 6px; background: var(--ios-gray); border-radius: 50%; animation: typingBounce 1.4s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typingBounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+    /* Input Area */
+    .input-area { padding: 8px 12px 28px; border-top: 1px solid var(--ios-separator); position: relative; z-index: 98; }
+    .input-wrapper { display: flex; align-items: flex-end; gap: 8px; }
+    .input-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; color: var(--ios-gray); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all 0.2s; }
+    .input-btn:active { transform: scale(0.88); color: var(--ios-blue); }
+    .input-btn svg { width: 24px; height: 24px; }
+    .text-field { flex: 1; background: var(--ios-bubble-in); border: none; border-radius: 20px; padding: 9px 16px; font-size: 16px; font-family: inherit; color: inherit; max-height: 100px; resize: none; outline: none; transition: all 0.2s; }
+    .send-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--ios-blue); color: white; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all 0.2s var(--spring); opacity: 0; transform: scale(0.8); pointer-events: none; }
+    .send-btn.visible { opacity: 1; transform: scale(1); pointer-events: auto; }
+    .send-btn:active { transform: scale(0.88); }
+    .send-btn svg { width: 18px; height: 18px; margin-left: 1px; }
+
+    /* Recording UI */
+    .recording-ui { display: none; align-items: center; gap: 10px; flex: 1; background: var(--ios-bubble-in); border-radius: 20px; padding: 8px 14px; }
+    .recording-ui.active { display: flex; }
+    .rec-pulse { width: 10px; height: 10px; background: var(--ios-red); border-radius: 50%; animation: recPulse 1.2s infinite; flex-shrink: 0; }
+    @keyframes recPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
+    .rec-time { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .rec-cancel { font-size: 13px; color: var(--ios-red); margin-left: auto; cursor: pointer; font-weight: 500; }
+
+    /* Connect Screen */
+    .connect-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; gap: 24px; }
+    .id-card { width: 100%; max-width: 320px; padding: 28px; border-radius: var(--radius-xl); text-align: center; position: relative; overflow: hidden; }
+    .id-card::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: linear-gradient(135deg, rgba(255,255,255,0.5), transparent 50%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+    .id-label { font-size: 13px; color: var(--ios-gray); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; font-weight: 600; }
+    .id-number { font-size: 42px; font-weight: 700; letter-spacing: 4px; font-variant-numeric: tabular-nums; background: linear-gradient(135deg, var(--ios-blue), #5856D6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .id-hint { margin-top: 10px; font-size: 13px; color: var(--ios-gray); line-height: 1.4; }
+    .connect-input { width: 100%; max-width: 320px; padding: 14px 18px; border-radius: var(--radius-lg); border: 1px solid var(--ios-separator); background: var(--ios-surface); font-size: 17px; text-align: center; letter-spacing: 6px; font-weight: 600; color: inherit; outline: none; font-variant-numeric: tabular-nums; transition: all 0.3s; }
+    .connect-input:focus { border-color: var(--ios-blue); box-shadow: 0 0 0 4px rgba(0,122,255,0.12); }
+    .connect-btn { width: 100%; max-width: 320px; padding: 16px; border-radius: var(--radius-lg); border: none; background: var(--ios-blue); color: white; font-size: 17px; font-weight: 600; cursor: pointer; transition: all 0.2s var(--spring); position: relative; overflow: hidden; }
+    .connect-btn:active { transform: scale(0.97); opacity: 0.9; }
+    .connect-btn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 50%); pointer-events: none; }
+
+    /* Modals */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 500; display: none; align-items: flex-end; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+    .modal-overlay.active { display: flex; opacity: 1; }
+    .modal-sheet { width: 100%; max-width: 430px; background: var(--ios-bg); border-radius: var(--radius-xl) var(--radius-xl) 0 0; padding: 20px 0 32px; transform: translateY(100%); transition: transform 0.35s var(--ease-out); max-height: 85vh; overflow-y: auto; }
+    .modal-overlay.active .modal-sheet { transform: translateY(0); }
+    .modal-handle { width: 36px; height: 5px; background: var(--ios-gray); opacity: 0.3; border-radius: 3px; margin: 0 auto 16px; }
+    .modal-title { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 4px; padding: 0 20px; }
+    .modal-subtitle { font-size: 13px; color: var(--ios-gray); text-align: center; margin-bottom: 20px; padding: 0 20px; }
+    .modal-option { display: flex; align-items: center; gap: 14px; padding: 14px 24px; cursor: pointer; transition: background 0.2s; border: none; background: none; width: 100%; text-align: left; font: inherit; color: inherit; }
+    .modal-option:active { background: rgba(0,0,0,0.04); }
+    .modal-option-icon { width: 30px; height: 30px; border-radius: 8px; background: var(--ios-bubble-in); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .modal-option-icon svg { width: 18px; height: 18px; }
+    .modal-option-text { font-size: 16px; }
+    .modal-divider { height: 8px; background: var(--ios-separator); margin: 8px 0; opacity: 0.5; }
+
+    /* VIP Badge */
+    .vip-badge { display: inline-flex; align-items: center; gap: 3px; background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(255,165,0,0.3); }
+    .vip-avatar { position: relative; width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #007AFF, #5856D6, #AF52DE); background-size: 200% 200%; animation: vipGradient 3s ease infinite; padding: 2px; flex-shrink: 0; }
+    .vip-avatar-inner { width: 100%; height: 100%; border-radius: 50%; background: var(--ios-bg); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; overflow: hidden; }
+    .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--ios-bubble-in); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; color: var(--ios-gray); }
+
+    /* Image Viewer */
+    .image-viewer { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.92); backdrop-filter: blur(20px); display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+    .image-viewer.active { display: flex; opacity: 1; }
+    .image-viewer img { max-width: 92%; max-height: 85vh; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); transform: scale(0.9); transition: transform 0.3s var(--spring); }
+    .image-viewer.active img { transform: scale(1); }
+    .viewer-close { position: absolute; top: 16px; right: 16px; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.15); border: none; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(10px); }
+
+    /* Redeem Input */
+    .redeem-input { width: calc(100% - 48px); margin: 0 24px 16px; padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--ios-separator); background: var(--ios-surface); font-size: 16px; text-align: center; color: inherit; outline: none; }
+    .redeem-input:focus { border-color: var(--ios-blue); }
+    .redeem-btn { width: calc(100% - 48px); margin: 0 24px; padding: 14px; border-radius: var(--radius-md); border: none; background: var(--ios-blue); color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
+    .redeem-msg { text-align: center; font-size: 13px; margin-top: 10px; padding: 0 24px; min-height: 20px; }
+
+    /* Confetti */
+    .confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 9998; overflow: hidden; }
+    .confetti { position: absolute; width: 8px; height: 8px; border-radius: 2px; animation: confettiFall 3s ease-out forwards; }
+    @keyframes confettiFall { 0% { transform: translateY(-20px) rotate(0deg); opacity: 1; } 100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
+
+    /* Prank Button */
+    .prank-btn { background: linear-gradient(135deg, #FF3B30, #FF9500); color: white; }
+    
+    /* VIP Glow for outgoing */
+    .vip-glow { animation: vipGlow 2s ease-in-out infinite alternate; }
+    @keyframes vipGlow { from { box-shadow: 0 4px 20px rgba(0,122,255,0.3); } to { box-shadow: 0 4px 30px rgba(175,82,222,0.5); } }
+
+    /* Responsive */
+    @media (max-width: 380px) {
+      .msg-bubble { max-width: 80%; font-size: 15px; }
+      .msg-image { max-width: 220px; }
+      .id-number { font-size: 36px; }
+    }
+    
+    /* Scrollbar hide */
+    .hide-scroll::-webkit-scrollbar { display: none; }
+    
+    /* Toast */
+    .toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%) translateY(-20px); background: var(--glass-bg); backdrop-filter: blur(20px); padding: 10px 20px; border-radius: 20px; font-size: 14px; font-weight: 500; opacity: 0; pointer-events: none; transition: all 0.4s var(--ease-out); z-index: 600; border: 1px solid var(--glass-border); box-shadow: var(--shadow); }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Menu dots */
+    .menu-dots { display: flex; gap: 3px; }
+    .menu-dot { width: 4px; height: 4px; background: currentColor; border-radius: 50%; }
+  </style>
 </head>
 <body>
-<canvas id="canvas"></canvas>
 
-<div id="ui">
-  <div class="ui-block"><div class="ui-label">Score</div><div class="ui-value" id="score-display">0</div></div>
-  <div class="ui-block"><div class="ui-label">Coins</div><div class="ui-value" id="coin-display">🪙 0</div></div>
-  <div class="ui-block"><div class="ui-label">Lives</div><div class="lives" id="lives-display">❤️ ❤️ ❤️</div></div>
-  <div class="ui-block"><div class="ui-label">HP</div><div id="health-bar"><div id="health-fill" style="width:100%"></div></div></div>
-  <div class="ui-block"><div class="ui-label">Level</div><div class="ui-value" id="level-display">1</div></div>
-</div>
-
-<div id="start-screen">
-  <div class="pixel-mario">🍄</div>
-  <div class="screen-title">SUPER MARIO</div>
-  <div class="screen-sub">3D Adventure</div>
-  <button class="btn" id="start-btn">▶ START GAME</button>
-  <div class="info-text">WASD / Arrow Keys · Space to Jump · Mobile Supported</div>
-</div>
-<div id="gameover-screen">
-  <div style="font-size:70px;margin-bottom:20px;animation:floatAnim 2s ease-in-out infinite">💀</div>
-  <div class="screen-title" style="color:#ff4444;text-shadow:4px 4px 0 #880000,0 0 40px rgba(255,68,68,0.6)">GAME OVER</div>
-  <div class="screen-sub" id="final-score-text">SCORE: 0</div>
-  <button class="btn" id="restart-btn">↺ TRY AGAIN</button>
-</div>
-<div id="win-screen">
-  <div style="font-size:70px;margin-bottom:20px;animation:floatAnim 2s ease-in-out infinite">🏆</div>
-  <div class="screen-title" style="color:#ffcc00">YOU WIN!</div>
-  <div class="screen-sub" id="win-score-text">FINAL SCORE: 0</div>
-  <button class="btn" id="win-restart-btn" style="background:linear-gradient(135deg,#00cc44,#00aaff)">▶ PLAY AGAIN</button>
-</div>
-
-<div id="score-popup">+100</div>
-<div id="level-announce"><div class="announce-text" id="announce-text">WORLD 1-1</div></div>
-
-<div id="mobile-controls">
-  <div class="dpad">
-    <div class="dpad-empty"></div><div class="dpad-btn" id="btn-up">▲</div><div class="dpad-empty"></div>
-    <div class="dpad-btn" id="btn-left">◀</div><div class="dpad-btn" id="btn-down">▼</div><div class="dpad-btn" id="btn-right">▶</div>
+  <!-- Splash -->
+  <div id="splash">
+    <div class="splash-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+      </svg>
+    </div>
+    <div class="splash-title">Asepmessage</div>
+    <div class="splash-subtitle">Anonymous. Secure. Yours.</div>
   </div>
-  <div class="action-btns">
-    <div class="action-btn btn-jump" id="btn-jump">JUMP</div>
+
+  <!-- Connect Screen -->
+  <div id="screen-connect" class="screen">
+    <div class="status-bar glass">
+      <span class="status-time" id="status-time">9:41</span>
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><path d="M1 8h2v3H1zM5 6h2v5H5zM9 4h2v7H9zM13 2h2v9h-2z"/></svg>
+    </div>
+    <div class="connect-body">
+      <div class="id-card glass-strong" id="my-id-card">
+        <div class="id-label">Your Anonymous ID</div>
+        <div class="id-number" id="my-id">----</div>
+        <div class="id-hint">Share this 4-digit number with friends<br>to start chatting instantly.</div>
+      </div>
+      
+      <div style="width:100%;max-width:320px;">
+        <div style="font-size:13px;color:var(--ios-gray);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Enter Friend's ID</div>
+        <input type="text" class="connect-input" id="target-input" maxlength="4" placeholder="0000" inputmode="numeric" pattern="[0-9]*">
+      </div>
+      
+      <button class="connect-btn" id="btn-connect">Start Chat</button>
+      <div style="font-size:12px;color:var(--ios-gray);text-align:center;max-width:280px;line-height:1.5;margin-top:8px;">
+        Open this file in another browser tab and enter each other's ID to connect.
+      </div>
+    </div>
   </div>
-</div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-// ── RENDERER ──────────────────────────────────────────────
-const canvas = document.getElementById('canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+  <!-- Chat Screen -->
+  <div id="screen-chat" class="screen">
+    <div class="status-bar glass" style="border-bottom:1px solid var(--ios-separator);">
+      <span class="status-time" id="chat-time">9:41</span>
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><path d="M1 8h2v3H1zM5 6h2v5H5zM9 4h2v7H9zM13 2h2v9h-2z"/></svg>
+    </div>
+    
+    <div class="nav-bar glass">
+      <button class="nav-btn" id="btn-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="nav-center">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="avatar" id="nav-avatar">?</div>
+          <div>
+            <div class="nav-title" id="chat-title">Anonymous</div>
+            <div class="nav-subtitle" id="chat-status">Tap to connect</div>
+          </div>
+        </div>
+      </div>
+      <button class="nav-btn" id="btn-menu">
+        <div class="menu-dots"><div class="menu-dot"></div><div class="menu-dot"></div><div class="menu-dot"></div></div>
+      </button>
+    </div>
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 500);
-camera.position.set(5, 8, 20);
-camera.lookAt(5, 3, 0);
+    <div class="chat-container" id="chat-messages"></div>
+    
+    <div class="input-area glass">
+      <div class="input-wrapper" id="input-normal">
+        <button class="input-btn" id="btn-camera">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>
+        <textarea class="text-field" id="msg-input" rows="1" placeholder="iMessage"></textarea>
+        <button class="input-btn" id="btn-mic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <button class="send-btn" id="btn-send">
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px;"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+      <div class="input-wrapper" id="input-recording" style="display:none;">
+        <div class="recording-ui active" style="flex:1;">
+          <div class="rec-pulse"></div>
+          <div class="rec-time" id="rec-time">00:00</div>
+          <div style="flex:1;"></div>
+          <div class="rec-cancel" id="rec-cancel">Cancel</div>
+        </div>
+        <button class="send-btn visible" id="rec-send" style="background:var(--ios-red);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
 
-(function onResize() {
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  window.addEventListener('resize', onResize);
-})();
+  <!-- Image Viewer -->
+  <div class="image-viewer" id="image-viewer">
+    <button class="viewer-close" id="viewer-close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <img src="" alt="Full view" id="viewer-img">
+  </div>
 
-// ── INPUT ─────────────────────────────────────────────────
-const keys = {};
-window.addEventListener('keydown', e => {
-  keys[e.code] = true;
-  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
-});
-window.addEventListener('keyup', e => { keys[e.code] = false; });
+  <!-- Menu Modal -->
+  <div class="modal-overlay" id="modal-menu">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">Menu</div>
+      <div class="modal-subtitle">Asepmessage Options</div>
+      
+      <button class="modal-option" id="opt-vip">
+        <div class="modal-option-icon" style="background:linear-gradient(135deg,#FFD700,#FFA500);color:white;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+        <div class="modal-option-text">Redeem VIP User</div>
+      </button>
+      
+      <button class="modal-option" id="opt-prank" style="display:none;">
+        <div class="modal-option-icon prank-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></div>
+        <div class="modal-option-text">Prank Options</div>
+      </button>
+      
+      <div class="modal-divider"></div>
+      
+      <button class="modal-option" id="opt-clear">
+        <div class="modal-option-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div>
+        <div class="modal-option-text">Clear Chat</div>
+      </button>
+      
+      <button class="modal-option" id="opt-disconnect">
+        <div class="modal-option-icon" style="color:var(--ios-red);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
+        <div class="modal-option-text" style="color:var(--ios-red);">Disconnect</div>
+      </button>
+    </div>
+  </div>
 
-const mobileEl = document.getElementById('mobile-controls');
-function checkMobile() { mobileEl.style.display = (window.innerWidth < 900 || 'ontouchstart' in window) ? 'flex' : 'none'; }
-checkMobile(); window.addEventListener('resize', checkMobile);
+  <!-- VIP Modal -->
+  <div class="modal-overlay" id="modal-vip">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">Redeem VIP</div>
+      <div class="modal-subtitle">Enter your exclusive code</div>
+      <input type="text" class="redeem-input" id="vip-code" placeholder="Enter code...">
+      <button class="redeem-btn" id="btn-redeem">Redeem</button>
+      <div class="redeem-msg" id="redeem-msg"></div>
+    </div>
+  </div>
 
-function mobileBtn(id, code) {
-  const el = document.getElementById(id);
-  const on  = e => { e.preventDefault(); keys[code]=true;  el.classList.add('pressed'); };
-  const off = e => { e.preventDefault(); keys[code]=false; el.classList.remove('pressed'); };
-  el.addEventListener('touchstart',  on,  {passive:false});
-  el.addEventListener('touchend',    off, {passive:false});
-  el.addEventListener('touchcancel', off, {passive:false});
-  el.addEventListener('mousedown',   on);
-  el.addEventListener('mouseup',     off);
-  el.addEventListener('mouseleave',  off);
-}
-mobileBtn('btn-up',    'ArrowUp');
-mobileBtn('btn-down',  'ArrowDown');
-mobileBtn('btn-left',  'ArrowLeft');
-mobileBtn('btn-right', 'ArrowRight');
-mobileBtn('btn-jump',  'Space');
+  <!-- Prank Modal -->
+  <div class="modal-overlay" id="modal-prank">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">Prank Box</div>
+      <div class="modal-subtitle">VIP Exclusive Pranks</div>
+      
+      <button class="modal-option" id="prank-typing">
+        <div class="modal-option-icon" style="background:var(--ios-blue);color:white;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+        <div class="modal-option-text">Fake Typing (10s)</div>
+      </button>
+      
+      <button class="modal-option" id="prank-shake">
+        <div class="modal-option-icon" style="background:var(--ios-red);color:white;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 19l-2 2"/><path d="M15 21l-2-2"/><path d="M19 15l2 2"/><path d="M21 11l-2 2"/><path d="M17 7l2-2"/><path d="M13 5l-2-2"/><path d="M9 9l-2-2"/><path d="M5 13l-2 2"/></svg></div>
+        <div class="modal-option-text">Screen Shake</div>
+      </button>
+      
+      <button class="modal-option" id="prank-confetti">
+        <div class="modal-option-icon" style="background:linear-gradient(135deg,#FF3B30,#FF9500);color:white;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1z"/></svg></div>
+        <div class="modal-option-text">Confetti Bomb</div>
+      </button>
+    </div>
+  </div>
 
-// ── MATERIALS ─────────────────────────────────────────────
-const M = {
-  ground:     new THREE.MeshStandardMaterial({color:0x4caf50,roughness:0.8}),
-  groundDark: new THREE.MeshStandardMaterial({color:0x2e7d32,roughness:0.9}),
-  brick:      new THREE.MeshStandardMaterial({color:0xbf6030,roughness:0.7}),
-  qBlock:     new THREE.MeshStandardMaterial({color:0xffcc00,roughness:0.4,metalness:0.2}),
-  qUsed:      new THREE.MeshStandardMaterial({color:0x888888,roughness:0.8}),
-  pipe:       new THREE.MeshStandardMaterial({color:0x388e3c,roughness:0.5,metalness:0.1}),
-  pipeTop:    new THREE.MeshStandardMaterial({color:0x1b5e20,roughness:0.4,metalness:0.15}),
-  red:        new THREE.MeshStandardMaterial({color:0xe53935,roughness:0.5}),
-  blue:       new THREE.MeshStandardMaterial({color:0x1565c0,roughness:0.5}),
-  skin:       new THREE.MeshStandardMaterial({color:0xffd54f,roughness:0.6}),
-  darkBrown:  new THREE.MeshStandardMaterial({color:0x3e2723,roughness:0.6}),
-  boots:      new THREE.MeshStandardMaterial({color:0x5d4037,roughness:0.7}),
-  enemy:      new THREE.MeshStandardMaterial({color:0x795548,roughness:0.6}),
-  enemyDark:  new THREE.MeshStandardMaterial({color:0x4e342e,roughness:0.6}),
-  coin:       new THREE.MeshStandardMaterial({color:0xffd700,roughness:0.2,metalness:0.9,emissive:0xffa000,emissiveIntensity:0.35}),
-  flagGreen:  new THREE.MeshStandardMaterial({color:0x4caf50,roughness:0.6}),
-  flagGold:   new THREE.MeshStandardMaterial({color:0xffd700,roughness:0.3,metalness:0.5}),
-  cloud:      new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.9,transparent:true,opacity:0.92}),
-  sky:        new THREE.MeshBasicMaterial({color:0x64b5f6,side:THREE.BackSide}),
-  star:       new THREE.MeshStandardMaterial({color:0xfff176,roughness:0.3,metalness:0.5,emissive:0xffe000,emissiveIntensity:0.5}),
-  mountain:   new THREE.MeshStandardMaterial({color:0x78909c,roughness:0.9}),
-  pole:       new THREE.MeshStandardMaterial({color:0x9e9e9e,metalness:0.8}),
-  poleBase:   new THREE.MeshStandardMaterial({color:0x8d6e63,roughness:0.8}),
-};
+  <div class="confetti-container" id="confetti-container"></div>
+  <div class="toast" id="toast"></div>
 
-function box(w,h,d,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.castShadow=m.receiveShadow=true;return m;}
-function cyl(rt,rb,h,s,mat){const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,s),mat);m.castShadow=m.receiveShadow=true;return m;}
-function sph(r,ws,hs,mat){const m=new THREE.Mesh(new THREE.SphereGeometry(r,ws,hs),mat);m.castShadow=true;return m;}
+  <input type="file" id="file-input" accept="image/*" style="display:none;">
 
-// ── LEVEL DATA ────────────────────────────────────────────
-// DESIGN RULES (Mario-fair):
-//  • Max ground gap = 3.5 units (player can clear ~4 at full speed)
-//  • Floating platforms: gap ≤ 3 units horizontally, height diff ≤ 2
-//  • Q-blocks / bricks: reachable from platform below (y diff ≤ 3)
-//  • Enemies: never on a narrow gap, never two in a row on same small pad
-//  • Coins: placed at jump-arc heights so they reward good jumps
-const LEVELS = [
-  {
-    // ── LEVEL 1 ── gentle intro, wide pads, small gaps ──────
-    platforms:[
-      // ground chain — gaps max 3 units
-      {x:5,   y:0, w:12, h:1, d:4},   // big start pad (x:-1 → 11)
-      {x:16,  y:0, w:6,  h:1, d:4},   // gap=2  (x:13→19)
-      {x:23,  y:0, w:5,  h:1, d:4},   // gap=1.5 (x:20.5→25.5)
-      {x:30,  y:0, w:6,  h:1, d:4},   // gap=1.5 (x:27→33)
-      {x:38,  y:0, w:7,  h:1, d:4},   // gap=2  (x:34.5→41.5)
-      {x:47,  y:0, w:9,  h:1, d:4},   // flag ground (x:42.5→51.5)
-      // low floaters — 2.5 above ground, easy to reach
-      {x:9,   y:2.5, w:4, h:1, d:2},
-      {x:20,  y:2.5, w:3, h:1, d:2},
-      {x:29,  y:2.5, w:3, h:1, d:2},
-      {x:38,  y:2.5, w:4, h:1, d:2},
-    ],
-    // Q-blocks sit 3 units above the floater below them (jump-reachable)
-    qBlocks: [
-      {x:8,  y:3.5},   // above floater at y=2.5, reachable from ground jump
-      {x:10, y:3.5},
-      {x:20, y:3.5},
-      {x:38, y:3.5},
-    ],
-    bricks: [
-      {x:9,  y:3.5},
-      {x:21, y:3.5},
-      {x:39, y:3.5},
-    ],
-    // Pipes on wide pads only, placed away from edges
-    pipes: [
-      {x:6,  groundY:0},   // on start pad, player can walk around
-      {x:32, groundY:0},   // on 4th pad
-    ],
-    // Enemies: 1 per pad, not near edges, not on narrow floaters
-    enemies: [
-      {x:17, y:1},   // 2nd pad
-      {x:24, y:1},   // 3rd pad
-      {x:40, y:1},   // 5th pad
-    ],
-    // Coins: arc trails above floaters + ground level treats
-    coins: [
-      {x:8,  y:4.5}, {x:10, y:4.5},          // above q-blocks
-      {x:13, y:1.5},                           // low jump reward
-      {x:20, y:4.5},                           // above floater
-      {x:28, y:1.5},                           // ground gap reward
-      {x:38, y:4.5}, {x:40, y:4.5},           // above floater
-    ],
-    flagX:  51,
-    spawnX: 2,
-  },
-
-  {
-    // ── LEVEL 2 ── stepping stones, moderate gaps, more enemies ─
-    platforms:[
-      {x:4,   y:0, w:8,  h:1, d:4},   // start
-      {x:14,  y:0, w:5,  h:1, d:4},   // gap=2.5
-      {x:21,  y:0, w:4,  h:1, d:4},   // gap=2
-      {x:28,  y:0, w:5,  h:1, d:4},   // gap=2
-      {x:36,  y:0, w:5,  h:1, d:4},   // gap=2
-      {x:44,  y:0, w:8,  h:1, d:4},   // flag ground
-      // stepping stones — all reachable single jumps, height ≤ 2
-      {x:10,  y:2,   w:3.5, h:1, d:2},
-      {x:17,  y:1.5, w:3,   h:1, d:2},
-      {x:24,  y:2,   w:3,   h:1, d:2},
-      {x:31,  y:1.5, w:3,   h:1, d:2},
-      {x:39,  y:2,   w:3.5, h:1, d:2},
-      // upper tier — reachable from stepping stones (height diff = 1.5)
-      {x:10,  y:3.5, w:3,   h:1, d:2},
-      {x:24,  y:3.5, w:3,   h:1, d:2},
-      {x:39,  y:3.5, w:3,   h:1, d:2},
-    ],
-    qBlocks: [
-      {x:9,  y:5},
-      {x:11, y:5},
-      {x:24, y:5},
-      {x:39, y:5},
-      {x:46, y:3},
-    ],
-    bricks: [
-      {x:10, y:5},
-      {x:25, y:5},
-      {x:40, y:5},
-    ],
-    pipes: [
-      {x:5,  groundY:0},
-      {x:30, groundY:0},
-      {x:46, groundY:0},
-    ],
-    // More enemies but still one per pad, none on tiny floaters
-    enemies: [
-      {x:14, y:1},
-      {x:22, y:1},
-      {x:29, y:1},
-      {x:37, y:1},
-      {x:45, y:1},
-    ],
-    coins: [
-      {x:9,  y:6}, {x:11, y:6},
-      {x:17, y:2.5},
-      {x:24, y:6},
-      {x:31, y:2.5},
-      {x:39, y:6},
-      {x:46, y:4},
-    ],
-    flagX:  52,
-    spawnX: 2,
-  }
-];
-
-// ── WORLD STATE ───────────────────────────────────────────
-let worldGroup=null, platforms=[], enemies=[], coinObjs=[], qBlocks=[], clouds=[];
-let flagObj=null, levelData=null;
-let gameState='start', score=0, coins=0, lives=3, level=1, playerHP=3;
-
-// ── PLAYER STATE ──────────────────────────────────────────
-const P_HH = 0.82;   // half-height (center to feet)
-const P_HW = 0.38;   // half-width
-let playerGroup=null, playerVel={x:0,y:0}, playerOnGround=false;
-let playerDead=false, playerInvincible=false, jumpPressed=false;
-let limbs={};
-
-function buildPlayerMesh() {
-  const g = new THREE.Group();
-  const hat   = box(0.72,0.28,0.72,M.red);       hat.position.set(0,1.01,0.05);
-  const brim  = box(0.92,0.07,0.88,M.red);       brim.position.set(0,0.88,0.05);
-  const head  = box(0.65,0.55,0.65,M.skin);      head.position.set(0,0.62,0);
-  const eyeL  = box(0.1,0.1,0.12,new THREE.MeshStandardMaterial({color:0x111111})); eyeL.position.set(-0.19,0.65,0.33);
-  const eyeR  = eyeL.clone(); eyeR.position.set(0.19,0.65,0.33);
-  const mL    = box(0.22,0.1,0.14,M.darkBrown);  mL.position.set(-0.17,0.38,0.33);
-  const mR    = mL.clone(); mR.position.set(0.17,0.38,0.33);
-  const body  = box(0.66,0.52,0.52,M.blue);      body.position.set(0,0.1,0);
-  const shirt = box(0.46,0.28,0.54,M.red);       shirt.position.set(0,0.1,0);
-  const legL  = box(0.28,0.44,0.29,M.blue);      legL.position.set(-0.2,-0.37,0);
-  const legR  = box(0.28,0.44,0.29,M.blue);      legR.position.set(0.2,-0.37,0);
-  const bootL = box(0.3,0.2,0.38,M.boots);       bootL.position.set(-0.2,-0.63,0.05);
-  const bootR = box(0.3,0.2,0.38,M.boots);       bootR.position.set(0.2,-0.63,0.05);
-  const armL  = box(0.23,0.4,0.23,M.red);        armL.position.set(-0.47,0.1,0);
-  const armR  = box(0.23,0.4,0.23,M.red);        armR.position.set(0.47,0.1,0);
-  [hat,brim,head,eyeL,eyeR,mL,mR,body,shirt,legL,legR,bootL,bootR,armL,armR].forEach(p=>g.add(p));
-  limbs = {legL,legR,armL,armR};
-  g.castShadow = true;
-  return g;
-}
-
-// ── WORLD BUILDER ─────────────────────────────────────────
-function getFloorBelow(x, fromY) {
-  // Find highest platform topY that is below fromY and covers x
-  let best = -999;
-  for (const p of platforms) {
-    if (p.isBottom) continue;
-    const hw = p.w/2;
-    if (x >= p.x-hw && x <= p.x+hw && p.topY < fromY) {
-      if (p.topY > best) best = p.topY;
-    }
-  }
-  return best === -999 ? 0.5 : best;
-}
-
-function buildWorld(lvl) {
-  // Destroy old
-  if (worldGroup) { scene.remove(worldGroup); worldGroup.traverse(c=>{if(c.isMesh&&c.geometry)c.geometry.dispose();}); }
-  worldGroup=null; platforms=[]; enemies=[]; coinObjs=[]; qBlocks=[]; clouds=[]; flagObj=null;
-  scene.children.filter(c=>c.isLight).forEach(l=>scene.remove(l));
-
-  levelData = LEVELS[Math.min(lvl-1, LEVELS.length-1)];
-  worldGroup = new THREE.Group();
-  scene.add(worldGroup);
-
-  // Sky
-  worldGroup.add(new THREE.Mesh(new THREE.SphereGeometry(220,16,16), M.sky));
-
-  // Sun
-  const sunMesh = sph(5,16,12,new THREE.MeshBasicMaterial({color:0xfffde7}));
-  sunMesh.position.set(-60,80,-100); worldGroup.add(sunMesh);
-
-  // Mountains
-  for(let i=0;i<7;i++){
-    const h=10+Math.random()*8;
-    const mt=cyl(0,5+Math.random()*4,h,4,M.mountain);
-    mt.position.set(-10+i*14,-h/2-0.5,-28); mt.castShadow=false; worldGroup.add(mt);
-  }
-
-  // Clouds
-  for(let i=0;i<14;i++){
-    const cg=new THREE.Group();
-    for(let j=0;j<3+Math.floor(Math.random()*3);j++){
-      const cb=sph(1.1+Math.random()*0.7,8,6,M.cloud); cb.position.set(j*1.6,Math.random()*0.6,0); cg.add(cb);
-    }
-    cg.position.set(-15+i*8,12+Math.random()*7,-10-Math.random()*10);
-    cg.scale.setScalar(0.7+Math.random()*0.7);
-    worldGroup.add(cg); clouds.push({group:cg,speed:0.008+Math.random()*0.01});
-  }
-
-  // Stars
-  for(let i=0;i<25;i++){
-    const s=sph(0.14,6,6,M.star);
-    s.position.set(-20+Math.random()*80,16+Math.random()*28,-30-Math.random()*40); worldGroup.add(s);
-  }
-
-  // Platforms
-  levelData.platforms.forEach(p=>{
-    const topY = p.y + p.h/2;
-    const m = box(p.w,p.h,p.d,M.ground); m.position.set(p.x,p.y,0); worldGroup.add(m);
-    const cap = box(p.w,0.12,p.d,M.groundDark); cap.position.set(p.x,topY+0.06,0); worldGroup.add(cap);
-    platforms.push({x:p.x, topY, w:p.w, d:p.d});
-  });
-
-  // Pipes
-  levelData.pipes.forEach(p=>{
-    const groundTop = p.groundY + 0.5;
-    const sh=2.4, stemY=groundTop+sh/2;
-    const s=cyl(0.5,0.5,sh,12,M.pipe); s.position.set(p.x,stemY,0); worldGroup.add(s);
-    const tipY=groundTop+sh+0.2;
-    const t=cyl(0.66,0.66,0.4,12,M.pipeTop); t.position.set(p.x,tipY,0); worldGroup.add(t);
-    platforms.push({x:p.x,topY:tipY,w:1.35,d:1.35});
-  });
-
-  // Question Blocks
-  levelData.qBlocks.forEach((b,i)=>{
-    const m=box(1,1,1,M.qBlock); m.position.set(b.x,b.y,0); worldGroup.add(m);
-    const topY=b.y+0.5, botY=b.y-0.5;
-    qBlocks.push({mesh:m,x:b.x,y:b.y,topY,hit:false});
-    platforms.push({x:b.x,topY,w:1,d:1, qIdx:i});
-    platforms.push({x:b.x,topY:botY,w:1,d:1, isBottom:true, qIdx:i});
-  });
-
-  // Bricks
-  levelData.bricks.forEach(b=>{
-    const m=box(1,1,1,M.brick); m.position.set(b.x,b.y,0); worldGroup.add(m);
-    const topY=b.y+0.5, botY=b.y-0.5;
-    platforms.push({x:b.x,topY,w:1,d:1,mesh:m});
-    platforms.push({x:b.x,topY:botY,w:1,d:1,isBottom:true,isBrick:true,mesh:m});
-  });
-
-  // Coins
-  levelData.coins.forEach(c=>{
-    const m=cyl(0.26,0.26,0.1,16,M.coin); m.rotation.x=Math.PI/2; m.position.set(c.x,c.y,0); worldGroup.add(m);
-    coinObjs.push({mesh:m,x:c.x,y:c.y,collected:false});
-  });
-
-  // Enemies — spawn on actual floor
-  levelData.enemies.forEach(e=>{
-    const g=new THREE.Group();
-    const body=sph(0.44,10,8,M.enemy); body.scale.y=0.82; g.add(body);
-    const eL=sph(0.11,6,6,M.enemyDark); eL.position.set(-0.19,0.14,0.36); g.add(eL);
-    const eR=eL.clone(); eR.position.set(0.19,0.14,0.36); g.add(eR);
-    const bL=box(0.19,0.08,0.1,new THREE.MeshStandardMaterial({color:0x1a0a00}));
-    bL.position.set(-0.18,0.27,0.36); bL.rotation.z=0.4; g.add(bL);
-    const bR=bL.clone(); bR.position.set(0.18,0.27,0.36); bR.rotation.z=-0.4; g.add(bR);
-    const fL=box(0.29,0.16,0.36,M.darkBrown); fL.position.set(-0.2,-0.43,0); g.add(fL);
-    const fR=fL.clone(); fR.position.set(0.2,-0.43,0); g.add(fR);
-
-    // place enemy on floor
-    const floorY = getFloorBelow(e.x, e.y+5);
-    g.position.set(e.x, floorY+0.44, 0);
-    worldGroup.add(g);
-    enemies.push({group:g,vx:-0.032,vy:0,alive:true});
-  });
-
-  // Flag
-  const fx=levelData.flagX;
-  const p=cyl(0.1,0.1,10,8,M.pole); p.position.set(fx,5,0); worldGroup.add(p);
-  const f=box(1.2,0.7,0.1,M.flagGreen); f.position.set(fx+0.7,9.6,0); worldGroup.add(f);
-  const b=sph(0.23,8,8,M.flagGold); b.position.set(fx,10.1,0); worldGroup.add(b);
-  const base=box(1.2,0.4,1.2,M.poleBase); base.position.set(fx,0.2,0); worldGroup.add(base);
-  flagObj={x:fx,reached:false};
-
-  // Lights
-  const amb=new THREE.AmbientLight(0x87ceeb,0.65); scene.add(amb);
-  const dir=new THREE.DirectionalLight(0xfff8e1,1.4);
-  dir.position.set(-30,50,20); dir.castShadow=true;
-  dir.shadow.mapSize.set(2048,2048);
-  dir.shadow.camera.left=-80; dir.shadow.camera.right=80;
-  dir.shadow.camera.top=50;   dir.shadow.camera.bottom=-20;
-  dir.shadow.bias=-0.001; scene.add(dir);
-  const fill=new THREE.DirectionalLight(0xadd8e6,0.4);
-  fill.position.set(20,10,10); scene.add(fill);
-}
-
-// ── COLLISION ─────────────────────────────────────────────
-function resolvePlayer() {
-  playerOnGround=false;
-  const px=playerGroup.position.x, py=playerGroup.position.y;
-  const pBot=py-P_HH, pTop=py+P_HH;
-  const pL=px-P_HW,   pR=px+P_HW;
-
-  for(const p of platforms){
-    const hw=p.w/2, hd=p.d/2;
-    // X overlap check
-    if(pR<=p.x-hw || pL>=p.x+hw) continue;
-    // Z overlap (player always at z=0)
-    if(0.5<=-hd || -0.5>=hd) continue; // effectively always passes since hd>=1
-
-    if(p.isBottom){
-      // Ceiling: player head hits bottom of block
-      if(playerVel.y>0 && pTop>=p.topY && pTop<=p.topY+0.45+playerVel.y){
-        playerGroup.position.y = p.topY - P_HH;
-        playerVel.y = -0.05;
-        // Block effects
-        if(p.qIdx!==undefined){
-          const qb=qBlocks[p.qIdx];
-          if(!qb.hit){ qb.hit=true; qb.mesh.material=M.qUsed; addCoins(1); addScore(200); showScorePopup('🪙',qb.x,qb.y+1); bumpMesh(qb.mesh); }
+  <script>
+    /* ============ ASEPMESSAGE APP ============ */
+    const APP = {
+      myId: null,
+      targetId: null,
+      channel: null,
+      listenChannel: null,
+      messages: [],
+      isVip: false,
+      isTyping: false,
+      typingTimer: null,
+      recorder: null,
+      recChunks: [],
+      recStartTime: 0,
+      recTimer: null,
+      audioCtx: null,
+      connected: false,
+      targetVip: false,
+      
+      init() {
+        this.myId = this.getOrCreateId();
+        this.isVip = localStorage.getItem('asep_vip') === 'true';
+        document.getElementById('my-id').textContent = this.myId;
+        this.updateTime();
+        setInterval(() => this.updateTime(), 1000);
+        this.setupEventListeners();
+        this.playSound('open');
+        
+        setTimeout(() => {
+          document.getElementById('splash').style.opacity = '0';
+          setTimeout(() => {
+            document.getElementById('splash').style.display = 'none';
+            this.showScreen('screen-connect');
+          }, 600);
+        }, 1800);
+      },
+      
+      getOrCreateId() {
+        let id = localStorage.getItem('asep_id');
+        if (!id) {
+          id = Math.floor(1000 + Math.random() * 9000).toString();
+          localStorage.setItem('asep_id', id);
         }
-        if(p.isBrick&&p.mesh){ addScore(50); bumpMesh(p.mesh); }
+        return id;
+      },
+      
+      updateTime() {
+        const now = new Date();
+        const h = now.getHours().toString().padStart(2,'0');
+        const m = now.getMinutes().toString().padStart(2,'0');
+        document.querySelectorAll('.status-time').forEach(el => el.textContent = `${h}:${m}`);
+      },
+      
+      showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+      },
+      
+      setupEventListeners() {
+        document.getElementById('btn-connect').addEventListener('click', () => this.connect());
+        document.getElementById('target-input').addEventListener('input', (e) => {
+          e.target.value = e.target.value.replace(/\D/g,'').slice(0,4);
+        });
+        document.getElementById('target-input').addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') this.connect();
+        });
+        
+        document.getElementById('btn-back').addEventListener('click', () => {
+          this.disconnect();
+          this.showScreen('screen-connect');
+        });
+        
+        document.getElementById('btn-menu').addEventListener('click', () => this.openModal('modal-menu'));
+        document.getElementById('opt-vip').addEventListener('click', () => { this.closeModal('modal-menu'); this.openModal('modal-vip'); });
+        document.getElementById('opt-clear').addEventListener('click', () => { this.clearChat(); this.closeModal('modal-menu'); });
+        document.getElementById('opt-disconnect').addEventListener('click', () => { this.disconnect(); this.closeModal('modal-menu'); this.showScreen('screen-connect'); });
+        document.getElementById('opt-prank').addEventListener('click', () => { this.closeModal('modal-menu'); this.openModal('modal-prank'); });
+        
+        document.getElementById('btn-redeem').addEventListener('click', () => this.redeemVip());
+        document.getElementById('vip-code').addEventListener('keypress', (e) => { if(e.key==='Enter') this.redeemVip(); });
+        
+        document.getElementById('prank-typing').addEventListener('click', () => { this.sendPrank('typing'); this.closeModal('modal-prank'); });
+        document.getElementById('prank-shake').addEventListener('click', () => { this.sendPrank('shake'); this.closeModal('modal-prank'); });
+        document.getElementById('prank-confetti').addEventListener('click', () => { this.sendPrank('confetti'); this.closeModal('modal-prank'); });
+        
+        document.getElementById('btn-send').addEventListener('click', () => this.sendText());
+        document.getElementById('msg-input').addEventListener('input', (e) => {
+          const btn = document.getElementById('btn-send');
+          btn.classList.toggle('visible', e.target.value.trim().length > 0);
+          this.sendTyping();
+        });
+        document.getElementById('msg-input').addEventListener('keypress', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendText(); }
+        });
+        
+        document.getElementById('btn-camera').addEventListener('click', () => document.getElementById('file-input').click());
+        document.getElementById('file-input').addEventListener('change', (e) => this.sendImage(e.target.files[0]));
+        
+        document.getElementById('btn-mic').addEventListener('click', () => this.startRecording());
+        document.getElementById('rec-cancel').addEventListener('click', () => this.cancelRecording());
+        document.getElementById('rec-send').addEventListener('click', () => this.stopRecording());
+        
+        document.getElementById('viewer-close').addEventListener('click', () => {
+          document.getElementById('image-viewer').classList.remove('active');
+        });
+        
+        ['modal-menu','modal-vip','modal-prank'].forEach(id => {
+          document.getElementById(id).addEventListener('click', (e) => {
+            if (e.target === document.getElementById(id)) this.closeModal(id);
+          });
+        });
+      },
+      
+      openModal(id) {
+        document.getElementById(id).classList.add('active');
+        document.body.style.overflow = 'hidden';
+      },
+      
+      closeModal(id) {
+        document.getElementById(id).classList.remove('active');
+        document.body.style.overflow = '';
+      },
+      
+      connect() {
+        const target = document.getElementById('target-input').value.trim();
+        if (!target || target.length !== 4 || target === this.myId) {
+          this.showToast('Enter a valid 4-digit ID');
+          return;
+        }
+        this.targetId = target;
+        this.setupChannel();
+        this.showScreen('screen-chat');
+        document.getElementById('chat-title').textContent = `User ${target}`;
+        document.getElementById('nav-avatar').textContent = target[0];
+        this.updateVipUi();
+        this.loadMessages();
+        this.sendSystem({type:'join'});
+        this.playSound('send');
+      },
+      
+      disconnect() {
+        if (this.targetId) this.sendSystem({type:'leave'});
+        this.targetId = null;
+        this.connected = false;
+        this.messages = [];
+        this.targetVip = false;
+        if (this.channel) { this.channel.close(); this.channel = null; }
+        if (this.listenChannel) { this.listenChannel.close(); this.listenChannel = null; }
+        document.getElementById('chat-messages').innerHTML = '';
+        document.getElementById('chat-status').textContent = 'Tap to connect';
+        document.getElementById('chat-status').className = 'nav-subtitle';
+      },
+      
+      setupChannel() {
+        if (this.channel) this.channel.close();
+        if (this.listenChannel) this.listenChannel.close();
+        
+        this.channel = new BroadcastChannel(`asepmsg_${this.targetId}`);
+        this.listenChannel = new BroadcastChannel(`asepmsg_${this.myId}`);
+        
+        this.listenChannel.onmessage = (e) => {
+          const data = e.data;
+          if (!data || data.from === this.myId) return;
+          this.handleMessage(data);
+        };
+        
+        this.connected = true;
+        document.getElementById('chat-status').textContent = 'Online';
+        document.getElementById('chat-status').className = 'nav-subtitle online';
+      },
+      
+      handleMessage(data) {
+        switch(data.type) {
+          case 'join':
+            this.connected = true;
+            document.getElementById('chat-status').textContent = 'Online';
+            document.getElementById('chat-status').className = 'nav-subtitle online';
+            this.showToast(`User ${data.from} joined`);
+            this.sendSystem({type:'ack', vip: this.isVip});
+            break;
+          case 'ack':
+            this.connected = true;
+            this.targetVip = data.vip;
+            if (this.targetVip) {
+              document.getElementById('nav-avatar').innerHTML = `<div class="vip-avatar"><div class="vip-avatar-inner">${this.targetId[0]}</div></div>`;
+            }
+            break;
+          case 'leave':
+            this.connected = false;
+            document.getElementById('chat-status').textContent = 'Offline';
+            document.getElementById('chat-status').className = 'nav-subtitle';
+            this.showToast(`User ${data.from} left`);
+            break;
+          case 'typing':
+            this.showTyping();
+            break;
+          case 'text':
+            this.receiveMessage(data);
+            break;
+          case 'image':
+            this.receiveImage(data);
+            break;
+          case 'voice':
+            this.receiveVoice(data);
+            break;
+          case 'prank':
+            this.executePrank(data.prankType);
+            break;
+          case 'read':
+            this.updateReadStatus(data.msgId);
+            break;
+        }
+      },
+      
+      sendSystem(payload) {
+        if (!this.channel) return;
+        this.channel.postMessage({...payload, from: this.myId, to: this.targetId, timestamp: Date.now()});
+      },
+      
+      sendTyping() {
+        if (!this.channel || this.typingTimer) return;
+        this.channel.postMessage({type:'typing', from:this.myId, to:this.targetId});
+        this.typingTimer = setTimeout(() => { this.typingTimer = null; }, 3000);
+      },
+      
+      sendText() {
+        const input = document.getElementById('msg-input');
+        const text = input.value.trim();
+        if (!text || !this.channel) return;
+        
+        const msg = {
+          id: 'msg_' + Date.now(),
+          type: 'text',
+          from: this.myId,
+          to: this.targetId,
+          content: text,
+          timestamp: Date.now(),
+          vip: this.isVip
+        };
+        
+        this.addMessageToUi(msg, true);
+        this.channel.postMessage(msg);
+        this.saveMessage(msg);
+        input.value = '';
+        input.style.height = 'auto';
+        document.getElementById('btn-send').classList.remove('visible');
+        this.playSound('send');
+        this.scrollToBottom();
+      },
+      
+      sendImage(file) {
+        if (!file || !this.channel) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const msg = {
+            id: 'msg_' + Date.now(),
+            type: 'image',
+            from: this.myId,
+            to: this.targetId,
+            content: e.target.result,
+            timestamp: Date.now(),
+            vip: this.isVip
+          };
+          this.addMessageToUi(msg, true);
+          this.channel.postMessage(msg);
+          this.saveMessage(msg);
+          this.playSound('send');
+          this.scrollToBottom();
+        };
+        reader.readAsDataURL(file);
+        document.getElementById('file-input').value = '';
+      },
+      
+      async startRecording() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+          this.recorder = new MediaRecorder(stream);
+          this.recChunks = [];
+          this.recorder.ondataavailable = (e) => this.recChunks.push(e.data);
+          this.recorder.start();
+          this.recStartTime = Date.now();
+          
+          document.getElementById('input-normal').style.display = 'none';
+          document.getElementById('input-recording').style.display = 'flex';
+          
+          this.recTimer = setInterval(() => {
+            const sec = Math.floor((Date.now() - this.recStartTime) / 1000);
+            const m = Math.floor(sec/60).toString().padStart(2,'0');
+            const s = (sec%60).toString().padStart(2,'0');
+            document.getElementById('rec-time').textContent = `${m}:${s}`;
+          }, 1000);
+        } catch(err) {
+          this.showToast('Microphone access denied');
+        }
+      },
+      
+      cancelRecording() {
+        if (this.recorder) { this.recorder.stop(); this.recorder.stream.getTracks().forEach(t=>t.stop()); }
+        clearInterval(this.recTimer);
+        this.recorder = null;
+        document.getElementById('input-normal').style.display = 'flex';
+        document.getElementById('input-recording').style.display = 'none';
+        document.getElementById('rec-time').textContent = '00:00';
+      },
+      
+      stopRecording() {
+        if (!this.recorder) return;
+        this.recorder.onstop = () => {
+          const blob = new Blob(this.recChunks, {type:'audio/webm'});
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const msg = {
+              id: 'msg_' + Date.now(),
+              type: 'voice',
+              from: this.myId,
+              to: this.targetId,
+              content: e.target.result,
+              duration: Math.floor((Date.now()-this.recStartTime)/1000),
+              timestamp: Date.now(),
+              vip: this.isVip
+            };
+            this.addMessageToUi(msg, true);
+            this.channel.postMessage(msg);
+            this.saveMessage(msg);
+            this.playSound('send');
+            this.scrollToBottom();
+          };
+          reader.readAsDataURL(blob);
+          this.recorder.stream.getTracks().forEach(t=>t.stop());
+          this.cancelRecording();
+        };
+        this.recorder.stop();
+      },
+      
+      sendPrank(type) {
+        if (!this.channel) return;
+        this.channel.postMessage({type:'prank', prankType:type, from:this.myId, to:this.targetId});
+        this.showToast('Prank sent!');
+        this.playSound('send');
+      },
+      
+      executePrank(type) {
+        switch(type) {
+          case 'typing':
+            this.showTypingFor(10000);
+            break;
+          case 'shake':
+            document.body.style.animation = 'none';
+            document.body.offsetHeight;
+            document.body.style.animation = 'shakeBody 0.5s ease-in-out';
+            setTimeout(() => document.body.style.animation = '', 500);
+            break;
+          case 'confetti':
+            this.triggerConfetti();
+            break;
+        }
+      },
+      
+      showTypingFor(ms) {
+        this.showTyping();
+        setTimeout(() => this.hideTyping(), ms);
+      },
+      
+      receiveMessage(data) {
+        this.addMessageToUi(data, false);
+        this.saveMessage(data);
+        this.playSound('receive');
+        this.scrollToBottom();
+        this.sendSystem({type:'read', msgId: data.id});
+      },
+      
+      receiveImage(data) {
+        this.addMessageToUi(data, false);
+        this.saveMessage(data);
+        this.playSound('receive');
+        this.scrollToBottom();
+        this.sendSystem({type:'read', msgId: data.id});
+      },
+      
+      receiveVoice(data) {
+        this.addMessageToUi(data, false);
+        this.saveMessage(data);
+        this.playSound('receive');
+        this.scrollToBottom();
+        this.sendSystem({type:'read', msgId: data.id});
+      },
+      
+      addMessageToUi(msg, isMe) {
+        const container = document.getElementById('chat-messages');
+        const row = document.createElement('div');
+        row.className = `msg-row ${isMe ? 'outgoing' : 'incoming'} ${msg.vip ? (isMe?'vip-out':'vip-in') : ''}`;
+        row.id = msg.id;
+        
+        const time = new Date(msg.timestamp).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+        
+        let contentHtml = '';
+        if (msg.type === 'text') {
+          const vipClass = msg.vip && isMe ? 'vip-glow' : '';
+          contentHtml = `<div class="msg-bubble ${vipClass}">${this.escapeHtml(msg.content)}</div>`;
+        } else if (msg.type === 'image') {
+          contentHtml = `<div class="msg-image" onclick="APP.viewImage('${msg.content}')"><img src="${msg.content}" alt="Image"></div>`;
+        } else if (msg.type === 'voice') {
+          contentHtml = this.createVoiceHtml(msg, isMe);
+        }
+        
+        const vipBadge = msg.vip ? '<span class="vip-badge">VIP</span>' : '';
+        const statusIcon = isMe ? `<span class="read-status" id="status-${msg.id}"><svg width="14" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>` : '';
+        
+        row.innerHTML = `
+          ${!isMe ? `<div class="avatar">${this.targetId ? this.targetId[0] : '?'}</div>` : ''}
+          <div style="max-width:74%;">
+            ${contentHtml}
+            <div class="msg-meta">${time} ${vipBadge} ${statusIcon}</div>
+          </div>
+        `;
+        
+        container.appendChild(row);
+        
+        if (msg.vip && isMe) {
+          this.animateSendBubble(row);
+        }
+      },
+      
+      createVoiceHtml(msg, isMe) {
+        const dur = msg.duration || 0;
+        const m = Math.floor(dur/60).toString().padStart(2,'0');
+        const s = (dur%60).toString().padStart(2,'0');
+        const bars = Array.from({length:20},()=>Math.floor(Math.random()*16+4)).join('px,');
+        const vipClass = msg.vip && isMe ? 'vip-glow' : '';
+        
+        return `
+          <div class="msg-bubble voice-bubble ${vipClass}" onclick="APP.playVoice(this, '${msg.content}')">
+            <button class="voice-play">
+              <svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px;margin-left:1px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </button>
+            <div class="voice-wave">
+              ${Array.from({length:20},(_,i)=>`<div class="wave-bar" style="height:${Math.floor(Math.random()*16+4)}px"></div>`).join('')}
+            </div>
+            <div class="voice-time">${m}:${s}</div>
+          </div>
+        `;
+      },
+      
+      playVoice(el, src) {
+        let audio = el._audio;
+        if (!audio) {
+          audio = new Audio(src);
+          el._audio = audio;
+          const bars = el.querySelectorAll('.wave-bar');
+          audio.onplay = () => {
+            el.querySelector('.voice-play').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px;"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+            const anim = setInterval(() => {
+              if (audio.paused) { clearInterval(anim); return; }
+              bars.forEach(b => b.style.height = (Math.random()*20+4)+'px');
+            }, 100);
+          };
+          audio.onended = () => {
+            el.querySelector('.voice-play').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px;margin-left:1px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+          };
+        }
+        if (audio.paused) audio.play(); else audio.pause();
+      },
+      
+      animateSendBubble(row) {
+        row.style.transform = 'scale(0.9)';
+        setTimeout(() => row.style.transform = '', 100);
+        if (Math.random() > 0.5) this.triggerConfetti(8, row);
+      },
+      
+      showTyping() {
+        if (document.getElementById('typing-indicator')) return;
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.id = 'typing-indicator';
+        div.className = 'typing-row';
+        div.innerHTML = `
+          <div class="typing-bubble">
+            <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+          </div>
+        `;
+        container.appendChild(div);
+        this.scrollToBottom();
+      },
+      
+      hideTyping() {
+        const el = document.getElementById('typing-indicator');
+        if (el) el.remove();
+      },
+      
+      updateReadStatus(msgId) {
+        const el = document.getElementById(`status-${msgId}`);
+        if (el) {
+          el.classList.add('read');
+          el.innerHTML = '<svg width="14" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 9 23 4 18"/></svg>';
+        }
+      },
+      
+      viewImage(src) {
+        document.getElementById('viewer-img').src = src;
+        document.getElementById('image-viewer').classList.add('active');
+      },
+      
+      scrollToBottom() {
+        const c = document.getElementById('chat-messages');
+        setTimeout(() => c.scrollTop = c.scrollHeight, 50);
+      },
+      
+      saveMessage(msg) {
+        this.messages.push(msg);
+        const key = `asep_chat_${this.myId}_${this.targetId}`;
+        localStorage.setItem(key, JSON.stringify(this.messages.slice(-200)));
+      },
+      
+      loadMessages() {
+        const key = `asep_chat_${this.myId}_${this.targetId}`;
+        const data = localStorage.getItem(key);
+        this.messages = data ? JSON.parse(data) : [];
+        this.messages.forEach(m => this.addMessageToUi(m, m.from === this.myId));
+        this.scrollToBottom();
+      },
+      
+      clearChat() {
+        this.messages = [];
+        const key = `asep_chat_${this.myId}_${this.targetId}`;
+        localStorage.removeItem(key);
+        document.getElementById('chat-messages').innerHTML = '';
+        this.showToast('Chat cleared');
+      },
+      
+      redeemVip() {
+        const code = document.getElementById('vip-code').value.trim();
+        const msgEl = document.getElementById('redeem-msg');
+        if (code === 'Asep melali') {
+          this.isVip = true;
+          localStorage.setItem('asep_vip', 'true');
+          msgEl.textContent = 'VIP Activated! Enjoy premium features.';
+          msgEl.style.color = 'var(--ios-green)';
+          this.playSound('send');
+          this.triggerConfetti(30);
+          this.updateVipUi();
+          setTimeout(() => this.closeModal('modal-vip'), 1500);
+        } else {
+          msgEl.textContent = 'Invalid code. Try again.';
+          msgEl.style.color = 'var(--ios-red)';
+          this.playSound('error');
+        }
+      },
+      
+      updateVipUi() {
+        if (this.isVip) {
+          document.getElementById('opt-prank').style.display = 'flex';
+          document.getElementById('my-id-card').innerHTML = `
+            <div class="id-label">Your VIP Anonymous ID</div>
+            <div class="id-number" style="background:linear-gradient(135deg,#FFD700,#FFA500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${this.myId}</div>
+            <div class="vip-badge" style="margin-top:8px;font-size:11px;padding:4px 10px;">VIP MEMBER</div>
+            <div class="id-hint">Premium features active.</div>
+          `;
+        }
+      },
+      
+      triggerConfetti(count=20, targetEl) {
+        const container = document.getElementById('confetti-container');
+        const colors = ['#007AFF','#34C759','#FF9500','#FF3B30','#AF52DE','#FFD700'];
+        const rect = targetEl ? targetEl.getBoundingClientRect() : {left:window.innerWidth/2, top:window.innerHeight/2};
+        
+        for (let i=0; i<count; i++) {
+          const c = document.createElement('div');
+          c.className = 'confetti';
+          c.style.background = colors[Math.floor(Math.random()*colors.length)];
+          c.style.left = (rect.left + rect.width/2 + (Math.random()-0.5)*100) + 'px';
+          c.style.top = (rect.top + (Math.random()-0.5)*50) + 'px';
+          c.style.animationDuration = (Math.random()*1.5+1.5) + 's';
+          c.style.transform = `rotate(${Math.random()*360}deg)`;
+          container.appendChild(c);
+          setTimeout(() => c.remove(), 3500);
+        }
+      },
+      
+      showToast(text) {
+        const t = document.getElementById('toast');
+        t.textContent = text;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+      },
+      
+      escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      },
+      
+      playSound(type) {
+        try {
+          if (!this.audioCtx) this.audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+          const ctx = this.audioCtx;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          
+          if (type === 'send') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime+0.1);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime+0.15);
+            osc.start(); osc.stop(ctx.currentTime+0.15);
+          } else if (type === 'receive') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime+0.1);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime+0.15);
+            osc.start(); osc.stop(ctx.currentTime+0.15);
+          } else if (type === 'open') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523, ctx.currentTime);
+            gain.gain.setValueAtTime(0.05, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime+0.3);
+            osc.start(); osc.stop(ctx.currentTime+0.3);
+          } else if (type === 'error') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, ctx.currentTime);
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime+0.2);
+            osc.start(); osc.stop(ctx.currentTime+0.2);
+          }
+        } catch(e) {}
       }
-    } else {
-      // Floor: player lands on top
-      const prevBot = pBot - playerVel.y; // where bottom was last frame
-      // Only land if coming from above (prevBot >= topY or we're close enough)
-      if(playerVel.y<=0 && pBot<=p.topY && prevBot>=p.topY-0.1){
-        playerGroup.position.y = p.topY + P_HH;
-        playerVel.y=0;
-        playerOnGround=true;
+    };
+
+    /* Add shake animation */
+    const shakeStyle = document.createElement('style');
+    shakeStyle.textContent = `
+      @keyframes shakeBody {
+        0%, 100% { transform: translateX(0); }
+        20% { transform: translateX(-8px); }
+        40% { transform: translateX(8px); }
+        60% { transform: translateX(-4px); }
+        80% { transform: translateX(4px); }
       }
+    `;
+    document.head.appendChild(shakeStyle);
+
+    /* Auto-resize textarea */
+    document.getElementById('msg-input').addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+    });
+
+    /* Dark mode auto */
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.setAttribute('data-theme','auto');
     }
-  }
 
-  if(playerGroup.position.y < -10) killPlayer();
-}
-
-function bumpMesh(m){
-  const oy=m.position.y; let t=0;
-  const id=setInterval(()=>{ t+=0.15; m.position.y=oy+Math.sin(t*Math.PI)*0.3; if(t>=1){m.position.y=oy;clearInterval(id);}},16);
-}
-
-function resolveEnemy(e){
-  const ex=e.group.position.x, ey=e.group.position.y, ehalf=0.44;
-  const eBot=ey-ehalf;
-  e.onGround=false;
-  for(const p of platforms){
-    if(p.isBottom) continue;
-    const hw=p.w/2;
-    if(ex<p.x-hw||ex>p.x+hw) continue;
-    const prevBot=eBot-e.vy;
-    if(e.vy<=0&&eBot<=p.topY&&prevBot>=p.topY-0.1){
-      e.group.position.y=p.topY+ehalf; e.vy=0; e.onGround=true;
-      // Turn at edge
-      if(ex-0.5<=p.x-hw||ex+0.5>=p.x+hw) e.vx*=-1;
-    }
-  }
-}
-
-// ── GAMEPLAY CHECKS ───────────────────────────────────────
-function checkEnemies(){
-  const px=playerGroup.position.x, py=playerGroup.position.y;
-  for(const e of enemies){
-    if(!e.alive) continue;
-    const ex=e.group.position.x, ey=e.group.position.y;
-    if(Math.abs(px-ex)>0.70||Math.abs(py-ey)>1.0) continue;
-    // Stomp: player clearly falling and feet above enemy center
-    if(playerVel.y<-0.02&&(py-P_HH)>=ey-0.2){
-      e.alive=false; worldGroup.remove(e.group);
-      playerVel.y=0.26; addScore(100); showScorePopup(100,ex,ey+1);
-    } else if(!playerInvincible&&Math.abs(px-ex)<0.60){
-      damagePlayer();
-    }
-  }
-}
-
-function checkCoins(){
-  const px=playerGroup.position.x, py=playerGroup.position.y;
-  for(const c of coinObjs){
-    if(c.collected) continue;
-    if(Math.abs(px-c.x)<0.72&&Math.abs(py-c.y)<0.85){
-      c.collected=true; worldGroup.remove(c.mesh); addCoins(1); addScore(50); showScorePopup(50,c.x,c.y+1);
-    }
-  }
-}
-
-function checkFlag(){
-  if(!flagObj||flagObj.reached) return;
-  if(Math.abs(playerGroup.position.x-flagObj.x)<1.5){
-    flagObj.reached=true; addScore(1000+level*500);
-    if(level<LEVELS.length){ showAnnounce('🏆 LEVEL CLEAR!'); setTimeout(()=>{level++;startLevel();},2200); }
-    else{ showAnnounce('🎉 YOU WIN!'); setTimeout(()=>{gameState='win';showWin();},2200); }
-  }
-}
-
-// ── DAMAGE ────────────────────────────────────────────────
-function damagePlayer(){
-  if(playerInvincible) return;
-  playerHP--; updateHP();
-  if(playerHP<=0){killPlayer();return;}
-  flashInvincible();
-}
-function flashInvincible(){
-  playerInvincible=true; let fc=0;
-  const id=setInterval(()=>{ fc++; if(playerGroup) playerGroup.visible=(fc%2===0); if(fc>20){if(playerGroup)playerGroup.visible=true;playerInvincible=false;clearInterval(id);}},120);
-}
-function killPlayer(){
-  if(playerDead) return; playerDead=true; lives--; updateUI();
-  if(lives<=0){ setTimeout(()=>{gameState='gameover';showGameover();},1400); }
-  else{ setTimeout(()=>spawnPlayer(),1000); }
-}
-
-// ── SPAWN PLAYER ──────────────────────────────────────────
-function spawnPlayer(){
-  if(!playerGroup){ playerGroup=buildPlayerMesh(); scene.add(playerGroup); }
-  playerDead=false; playerHP=3; playerVel={x:0,y:0}; playerOnGround=false;
-  playerGroup.visible=true; playerGroup.rotation.set(0,0,0);
-  updateHP();
-  // Find floor under spawn x
-  const floorTop=getFloorBelow(levelData.spawnX, 20);
-  playerGroup.position.set(levelData.spawnX, floorTop+P_HH, 0);
-  flashInvincible(); // brief invincibility on spawn
-}
-
-// ── UI ────────────────────────────────────────────────────
-function addScore(n){score+=n;document.getElementById('score-display').textContent=score;}
-function addCoins(n){coins+=n;document.getElementById('coin-display').textContent='🪙 '+coins;}
-function updateHP(){
-  const pct=(playerHP/3)*100, fill=document.getElementById('health-fill');
-  fill.style.width=pct+'%';
-  fill.style.background=pct>60?'linear-gradient(90deg,#00ff88,#00cc44)':pct>30?'linear-gradient(90deg,#ffcc00,#ff6600)':'linear-gradient(90deg,#ff3300,#ff0000)';
-}
-function updateUI(){
-  document.getElementById('lives-display').innerHTML=Array(Math.max(0,lives)).fill('❤️').join(' ')+(lives<=0?'💀':'');
-  document.getElementById('level-display').textContent=level;
-}
-function showScorePopup(val,wx,wy){
-  const sp=document.getElementById('score-popup');
-  const v=new THREE.Vector3(wx,wy,0).project(camera);
-  sp.style.left=((v.x*0.5+0.5)*window.innerWidth)+'px';
-  sp.style.top=((-v.y*0.5+0.5)*window.innerHeight)+'px';
-  sp.textContent=typeof val==='number'?'+'+val:val;
-  sp.style.display='block'; sp.style.animation='none'; void sp.offsetWidth;
-  sp.style.animation='scoreFloat 1s forwards';
-  setTimeout(()=>{sp.style.display='none';},1000);
-}
-function showAnnounce(txt){
-  const el=document.getElementById('announce-text');
-  el.textContent=txt; el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'),2000);
-}
-function showGameover(){document.getElementById('final-score-text').textContent='SCORE: '+score;document.getElementById('gameover-screen').style.display='flex';}
-function showWin(){document.getElementById('win-score-text').textContent='FINAL SCORE: '+score;document.getElementById('win-screen').style.display='flex';}
-
-// ── GAME FLOW ─────────────────────────────────────────────
-function startGame(){
-  score=0;coins=0;lives=3;level=1;playerHP=3;
-  document.getElementById('score-display').textContent='0';
-  document.getElementById('coin-display').textContent='🪙 0';
-  ['start-screen','gameover-screen','win-screen'].forEach(id=>document.getElementById(id).style.display='none');
-  updateUI();updateHP(); gameState='playing'; startLevel();
-}
-
-function startLevel(){
-  if(playerGroup){scene.remove(playerGroup);playerGroup=null;}
-  buildWorld(level);                 // must come first — builds platforms[]
-  playerGroup=buildPlayerMesh();     // create mesh
-  scene.add(playerGroup);
-  spawnPlayer();                     // place on floor using platforms[]
-  document.getElementById('level-display').textContent=level;
-  showAnnounce('WORLD '+level+'-1');
-}
-
-// ── MAIN UPDATE ───────────────────────────────────────────
-const GRAVITY=-0.022;
-const SPEED  = 0.15;
-const JUMP   = 0.38;
-let animTick=0;
-let coyoteFrames=0;
-
-function update(){
-  if(gameState!=='playing'||!playerGroup) return;
-  animTick+=0.07;
-  const left    = keys['ArrowLeft'] ||keys['KeyA'];
-  const right   = keys['ArrowRight']||keys['KeyD'];
-  const jumpKey = keys['Space']||keys['ArrowUp']||keys['KeyW'];
-
-  if(!playerDead){
-    if(left)      {playerVel.x=-SPEED; playerGroup.rotation.y=Math.PI;}
-    else if(right){playerVel.x= SPEED; playerGroup.rotation.y=0;}
-    else          {playerVel.x*=0.72;}
-
-    if(playerOnGround) coyoteFrames=6;
-    else if(coyoteFrames>0) coyoteFrames--;
-
-    if(jumpKey&&!jumpPressed&&coyoteFrames>0){
-      playerVel.y=JUMP; playerOnGround=false; coyoteFrames=0; jumpPressed=true;
-    }
-    if(!jumpKey){ if(playerVel.y>0.12) playerVel.y*=0.82; jumpPressed=false; }
-
-    // Walk anim
-    const wa=Math.abs(playerVel.x)>0.01?Math.sin(animTick*10)*0.55:0;
-    limbs.legL.rotation.x= wa; limbs.legR.rotation.x=-wa;
-    limbs.armL.rotation.x=-wa*0.7; limbs.armR.rotation.x=wa*0.7;
-    // Jump tilt
-    if(!playerOnGround) playerGroup.rotation.z+=(playerVel.y>0?-0.1:0.08-playerGroup.rotation.z)*0.2;
-    else playerGroup.rotation.z*=0.8;
-  }
-
-  playerVel.y+=GRAVITY;
-  playerGroup.position.x+=playerVel.x;
-  playerGroup.position.y+=playerVel.y;
-  resolvePlayer();
-
-  if(!playerDead){checkEnemies();checkCoins();checkFlag();}
-
-  // Enemy update
-  enemies.forEach(e=>{
-    if(!e.alive) return;
-    e.vy+=GRAVITY*0.85;
-    e.group.position.x+=e.vx;
-    e.group.position.y+=e.vy;
-    resolveEnemy(e);
-    if(e.group.position.y<-10){e.alive=false;worldGroup.remove(e.group);}
-  });
-
-  coinObjs.forEach(c=>{if(!c.collected)c.mesh.rotation.y+=0.08;});
-  clouds.forEach(c=>{c.group.position.x+=c.speed;if(c.group.position.x>90)c.group.position.x=-20;});
-
-  // Camera follow
-  const tx=playerGroup.position.x+5, ty=Math.max(playerGroup.position.y+5,7);
-  camera.position.x+=(tx-camera.position.x)*0.09;
-  camera.position.y+=(ty-camera.position.y)*0.09;
-  camera.position.z=20;
-  camera.lookAt(playerGroup.position.x, playerGroup.position.y+1, 0);
-}
-
-function loop(){requestAnimationFrame(loop);update();renderer.render(scene,camera);}
-
-document.getElementById('start-btn').addEventListener('click',startGame);
-document.getElementById('restart-btn').addEventListener('click',()=>{document.getElementById('gameover-screen').style.display='none';startGame();});
-document.getElementById('win-restart-btn').addEventListener('click',()=>{document.getElementById('win-screen').style.display='none';startGame();});
-
-loop();
-</script>
+    /* Init */
+    window.APP = APP;
+    document.addEventListener('DOMContentLoaded', () => APP.init());
+  </script>
 </body>
 </html>
 
